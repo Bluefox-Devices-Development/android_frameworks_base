@@ -43,6 +43,7 @@ import android.os.UserManager;
 import android.util.Slog;
 import android.util.proto.ProtoOutputStream;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.FrameworkStatsLog;
 import com.android.server.biometrics.SensorServiceStateProto;
 import com.android.server.biometrics.SensorStateProto;
@@ -169,9 +170,7 @@ public class Sensor {
 
                                     @Override
                                     public void onHardwareUnavailable() {
-                                        Slog.e(TAG,
-                                                "Fingerprint sensor hardware unavailable.");
-                                        mCurrentSession = null;
+                                        Sensor.this.onHardwareUnavailable();
                                     }
                                 }, getFingerprintUtilsInstance());
 
@@ -179,6 +178,19 @@ public class Sensor {
                                 newUserId);
                     }
                 });
+    }
+
+    @VisibleForTesting
+    void onHardwareUnavailable() {
+        Slog.e(TAG, "Fingerprint sensor hardware unavailable.");
+        try {
+            if (mCurrentSession != null) {
+                mCurrentSession.getSession().close();
+            }
+        } catch (RemoteException e) {
+            Slog.e(TAG, "Unable to close fingerprint session", e);
+        }
+        mCurrentSession = null;
     }
 
     private FingerprintStartUserClient getStartUserClient(AidlResponseHandler resultController,

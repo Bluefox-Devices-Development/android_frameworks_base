@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,6 +38,7 @@ import android.hardware.biometrics.fingerprint.ISession;
 import android.hardware.fingerprint.FingerprintSensorPropertiesInternal;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.RemoteException;
 import android.os.test.TestLooper;
 import android.platform.test.annotations.Presubmit;
 
@@ -176,6 +178,29 @@ public class SensorTest {
         verify(mClientMonitor).cancel();
         assertNull(sensor.getSessionForUser(USER_ID));
         assertNull(mScheduler.getCurrentClient());
+    }
+
+    @Test
+    public void onHardwareUnavailable_closesAndClearsSession() throws Exception {
+        when(mCurrentSession.getSession()).thenReturn(mSession);
+        final Sensor sensor = getSensor();
+
+        sensor.onHardwareUnavailable();
+
+        verify(mSession).close();
+        assertNull(sensor.mCurrentSession);
+    }
+
+    @Test
+    public void onHardwareUnavailable_closeFailsStillClearsSession() throws Exception {
+        when(mCurrentSession.getSession()).thenReturn(mSession);
+        doThrow(new RemoteException()).when(mSession).close();
+        final Sensor sensor = getSensor();
+
+        sensor.onHardwareUnavailable();
+
+        verify(mSession).close();
+        assertNull(sensor.mCurrentSession);
     }
 
     private void verifyNotLocked() {
